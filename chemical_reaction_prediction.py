@@ -1,3 +1,4 @@
+# 1. Import libraries and set up the environment
 import numpy as np 
 import pandas as pd 
 
@@ -8,7 +9,7 @@ import seaborn as sns
 import warnings
 warnings.filterwarnings("ignore")
 
-# 1. loading data
+# 2. Load the USPTO reaction SMILES dataset
 reaction_smiles_df = pd.read_csv("/kaggle/input/reaction-smiles-uspto-year-2023/reactionSmilesFigShareUSPTO2023.txt", 
                                  names=['reaction_smiles'])
 
@@ -23,7 +24,7 @@ reaction_smiles_df.head()
 
 %pip install scikit-mol
 
-# 2. survey on reaction_smiles_df
+# 3. Example: check the structure of the first row (reactant, condition, product)
 # 1st row data structure
 from rdkit import Chem
 smiles_strings_0 = ['C(=O)(OC(C)(C)C)OC(=O)OC(C)(C)C.NC=1C=CC(=NC1)C(C#N)(C)C', #reactants
@@ -32,6 +33,7 @@ smiles_strings_0 = ['C(=O)(OC(C)(C)C)OC(=O)OC(C)(C)C.NC=1C=CC(=NC1)C(C#N)(C)C', 
 mols_0 = [Chem.MolFromSmiles(smiles) for smiles in smiles_strings_0]
 mols_0
 
+# 4. Visualize the molecular structures for the first row
 # mol structure
 from rdkit.Chem import Draw
 from IPython.display import Image, display
@@ -40,9 +42,11 @@ mols_img_0 = Draw.MolsToGridImage(mols_0, molsPerRow=len(mols_0), subImgSize=(30
 display(mols_img_0)
 # reactants, reagent/solvent, product
 
+# 5. Example: check the structure of the second row
 # 2nd row data structure
 reaction_smiles_df.reaction_smiles[1]
 
+# 6. Convert the second row's SMILES strings to RDKit Mol objects
 # ROMol
 smiles_strings_1 = ['BrC1=CC=C(C=C1)CBr.C(#N)C(C)(C)C1=CC=C(C=N1)NC(OC(C)(C)C)=O', 
                     'N(C)(C)C=O.[H-].[Na+].[Cl-].[NH4+]', 
@@ -50,19 +54,21 @@ smiles_strings_1 = ['BrC1=CC=C(C=C1)CBr.C(#N)C(C)(C)C1=CC=C(C=N1)NC(OC(C)(C)C)=O
 mols_1 = [Chem.MolFromSmiles(smiles) for smiles in smiles_strings_1]
 mols_1
 
+# 7. Visualize the molecular structures for the second row
 # structure
 mols_img_1 = Draw.MolsToGridImage(mols_1, molsPerRow=len(mols_1), subImgSize=(300, 200))
 display(mols_img_1)
 # reactants, reagents/solvents, product
 # H- : Metal Hydride such as NaH
 
+# 8. Split reaction_smiles into separate columns: reactant, condition, and product
 # sep smiles_set to reactants, condition and product col 
 reaction_smiles_df = reaction_smiles_df['reaction_smiles'].str.split('>', expand=True)
 reaction_smiles_df.columns = ['reactant', 'condition', 'product']
 print(reaction_smiles_df.shape)
 reaction_smiles_df.head()
 
-# 3. generate ROMol from smiles
+# 9. Generate RDKit Mol objects (ROMol) for reactant and product columns
 # generate reactant_ROMol & product_ROMol
 from rdkit.Chem import AllChem, PandasTools, Descriptors
 
@@ -78,11 +84,11 @@ reaction_smiles_df.head()
 
 reaction_smiles_df.info()
 
-# drop nan
+# 10. Drop rows with missing values (NaN)
 reaction_smiles_df = reaction_smiles_df.dropna()
 reaction_smiles_df.shape 
 
-# train & validation data set
+# 11. Split data into training and validation sets
 from sklearn.model_selection import train_test_split
 
 train_df, val_df = train_test_split(reaction_smiles_df, test_size=0.2, random_state=14)
@@ -100,7 +106,7 @@ reaction_df = reaction_df.sort_index()
 print(reaction_df.shape)
 reaction_df.head(2)
 
-# 4. SmilesVectorizer
+# 12. Define a SMILES tokenizer (character-level vectorizer)
 # RDKit based
 class SmilesIndexer:
     def __init__(self, start_char='[', end_char=']', canonical=True, isomericSmiles=True):
@@ -195,6 +201,7 @@ Dimensions:	(58, 336)
 Charset:	 %0#%()*+-./0123456789:=@ABCFGHIKLMNOPRSTVWZ[\]acdeghilnorstu
 """
 
+# 13. Tokenize and visualize a batch of product molecules
 import torch
 from torch import nn
 from torch.utils.data import Dataset, TensorDataset
@@ -209,6 +216,8 @@ product_padded = pad_sequence(product_tokens)
 plt.matshow(product_padded.numpy().T)
 plt.show()
 
+
+# 14. Split data into train/validation sets for model input
 X_train = reaction_df.reactant_ROMol[reaction_df.set == "train"]
 y_train = reaction_df.product_ROMol[reaction_df.set == "train"]
 X_val = reaction_df.reactant_ROMol[reaction_df.set == "val"]
@@ -224,9 +233,13 @@ print(f"Number of validation samples with 'val': {len(reaction_df[reaction_df['s
 
 X_train.head()
 
+
+# 15. Set device for PyTorch (GPU if available)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
+
+# 16. Define PyTorch Dataset class for reactant/product pairs
 class MolDataset(Dataset):
     def __init__(self, reactant, product, tokenizer, augment):
         self.reactant = reactant
@@ -252,6 +265,8 @@ print(train_dataset, val_dataset)
 reactant_tokens, product_tokens = val_dataset[0]
 reactant_tokens, product_tokens
 
+
+# 17. Define collate function and DataLoader for batching
 batch_size=120
 def collate_fn(r_and_p_list):
     r, p = zip(*r_and_p_list)
@@ -274,6 +289,8 @@ for reactant, product in train_loader:
     break
 reactant.shape
 
+
+# 18. Define the LSTM-based sequence-to-sequence model for reaction prediction
 import torch.nn.functional as F
 class MolBrain(nn.Module):
     def __init__(self, num_tokens, hidden_size, embedding_size, dropout_rate):
@@ -368,6 +385,7 @@ class MolBrain(nn.Module):
         logits, _ = self.decode_states(states, product_in)
         return logits 
 
+# 19. Instantiate the model and move it to the selected device
 num_tokens = tokenizer.dims[1]
 hidden_size=256
 embedding_size=128
@@ -378,9 +396,11 @@ max_lr = 0.004
 model = MolBrain(num_tokens, hidden_size, embedding_size, dropout_rate)
 model.to(device)
 
+# 20. Test model output shape with a sample batch
 out = model(reactant.to(device), product[:-1,:].to(device))
 out.shape
 
+# 21. Set up optimizer and learning rate scheduler
 optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-5)
 optimizer.param_groups[0]['lr']
 
@@ -393,6 +413,8 @@ optimizer.param_groups[0]['lr']
 
 # Model training loop
 
+
+# 22. (Optional) Training loop and progress plotting function
 import ipywidgets
 %matplotlib inline
 def plot_progress():
@@ -417,6 +439,7 @@ def plot_progress():
         ax2.legend(loc=0)
         plt.show()
 
+# 23. Start the model training loop with progress tracking
 # using GPU T4 x2
 from tqdm import tqdm
 model.train() #Ensure the network is in "train" mode with dropouts active
@@ -465,12 +488,14 @@ for e in range(epochs):
         lrs.append(optimizer.param_groups[0]['lr'])
         plot_progress()
 
-# model save
+# 24. Save the trained model and tokenizer to disk
 import pickle
 save_dir = "/kaggle/working/"
 pickle.dump(model, open(f"{save_dir}seq2seq_molbrain_model.pickle","wb"))
 pickle.dump(tokenizer, open(f"{save_dir}seq2seq_molbrain_model_tokenizer.pickle","wb"))
 
+
+# 25. Prepare a batch from the validation set for inference
 _ = model.eval()
 for reactant, product in val_loader:
     reactant_in = reactant.to(device)
@@ -479,6 +504,8 @@ for reactant, product in val_loader:
     break
 reactant_in.shape
 
+
+# 26. Visualize the predicted output logits for a specific sample in the batch
 i = 0 #Select compound i from validation batch
 with torch.no_grad():
   pred = model.forward(reactant_in, product_in)
@@ -487,6 +514,7 @@ pred_cpu.shape
 
 plt.matshow(pred_cpu.T)
 
+# 27. Convert logits to predicted token indices and decode to SMILES
 indices = pred_cpu.argmax(axis=1)
 indices.shape
 
@@ -498,6 +526,8 @@ target_smiles[i]
 
 Chem.MolFromSmiles(smiles[0].strip(" $"))
 
+
+# 28. Visualize the latent vector and LSTM states for the selected sample
 latent = model.encode_latent(reactant_in[:,i:i+1])
 plt.plot(latent.cpu().detach().numpy().flatten())
 
@@ -507,11 +537,11 @@ print(states[0].shape)
 
 plt.plot(states[1].cpu().detach().numpy().flatten())
 
-
+# 29. Define a greedy decoding function to generate SMILES from latent states
 def greedy_decode(model, states):
-    char = tokenizer.char_to_int["["]  # 시작 토큰을 '['으로 가정
+    char = tokenizer.char_to_int["["]  # Assume start token is '['
     last_char = char
-    stop_char = tokenizer.char_to_int["]"]  # 종료 토큰을 ']'으로 가정
+    stop_char = tokenizer.char_to_int["]"]  # Assume end token is ']'
     char = torch.tensor(char, device=device).long().reshape(1,-1) #The first input
     chars = [] #Collect the sampled characters
     for i in range(200):
@@ -525,6 +555,7 @@ def greedy_decode(model, states):
 
     return chars
 
+# 30. Use greedy decoding to generate and decode the predicted SMILES
 smiles = greedy_decode(model, states)
 result = tokenizer.reverse_tokenize(np.array([smiles]))
 result
@@ -553,11 +584,14 @@ result
 
 Chem.MolFromSmiles(result[0], sanitize=False)
 
+# 31. Compare the predicted SMILES with the ground truth
 target_smiles= tokenizer.reverse_tokenize(product_out.T)
 #target_smiles[i]
 print(target_smiles[i])
 Chem.MolFromSmiles(target_smiles[i].strip(" $"))
 
+
+# 32. Analyze latent and state shapes for the entire validation batch
 reactant_in.shape
 
 latent = model.encode_latent(reactant_in)
@@ -568,6 +602,7 @@ states[0].shape
 
 states[1].shape
 
+# 33. Batch prediction: generate SMILES predictions for the whole validation set
 results = []
 
 val_df = reaction_df[reaction_df['set'] == "val"].iloc[0:500]
@@ -593,7 +628,7 @@ for i in range(len(val_df)):
 
 print(results)
 
-
+# 34. Convert ROMol objects to readable SMILES strings for result visualization
 from rdkit import Chem
 
 readable_results = []
@@ -611,7 +646,8 @@ for result in results:
         "predicted": predicted_smiles
     })
 
-for item in readable_results[:10]: # 처음 10개 결과만 출력하여 확인
+# 35. Print the first 10 prediction results for inspection
+for item in readable_results[:10]: 
     print(f"Product:   {item['product']}")
     print(f"Reactants: {item['reactants']}")
     print(f"Predicted: {item['predicted']}")
