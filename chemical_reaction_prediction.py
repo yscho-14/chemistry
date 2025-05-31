@@ -223,7 +223,7 @@ y_train = reaction_df.product_ROMol[reaction_df.set == "train"]
 X_val = reaction_df.reactant_ROMol[reaction_df.set == "val"]
 y_val = reaction_df.product_ROMol[reaction_df.set == "val"]
 X_train.shape, y_train.shape, X_val.shape, y_val.shape
-# ((109800,), (109800,), (0,), (0,))
+# ((109800,), (109800,), (27450,), (27450,))
 
 y_val
 
@@ -411,10 +411,9 @@ scheduler = OneCycleLR(optimizer=optimizer, max_lr = max_lr, total_steps = epoch
                       div_factor=25, final_div_factor=0.08)
 optimizer.param_groups[0]['lr']
 
-# Model training loop
-
 
 # 22. (Optional) Training loop and progress plotting function
+# Model training loop
 import ipywidgets
 %matplotlib inline
 def plot_progress():
