@@ -181,3 +181,115 @@ train_Tg_target = train_Tg['Tg']
 
 print(train_Tg_features.shape, train_Tg_target.shape)
 train_Tg_features.head()
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
+from sklearn.metrics import mean_absolute_error, r2_score
+
+# 2. Train & Validation set 
+X_train_Tg, X_val_Tg, y_train_Tg, y_val_Tg = train_test_split(
+    train_Tg_features, train_Tg_target, test_size=0.2, random_state=42
+)
+
+# 3. Scaling
+scaler = StandardScaler()
+X_train_Tg_scaled = scaler.fit_transform(X_train_Tg)
+X_val_Tg_scaled = scaler.transform(X_val_Tg)
+
+X_train_Tg_scaled.shape, X_val_Tg_scaled.shape
+
+# 5. SVM Regression Model
+svm_Tg = SVR(kernel='rbf', C=300, epsilon=1, gamma=0.01)
+svm_Tg.fit(X_train_Tg_scaled, y_train_Tg)
+
+# 6. Prediction
+y_pred_Tg = svm_Tg.predict(X_val_Tg_scaled)
+
+# 7. Evaluation
+mae = mean_absolute_error(y_val_Tg, y_pred_Tg)
+r2 = r2_score(y_val_Tg, y_pred_Tg)
+print(f"Validation MAE: {mae:.3f}")
+print(f"Validation R2: {r2:.3f}")
+
+# 8. Predicted Values
+import pandas as pd
+result_df = pd.DataFrame({
+    "True_Tg": y_val_Tg,
+    "Pred_Tg": y_pred_Tg
+})
+print(result_df.head())
+
+"""
+Validation MAE: 51.008
+Validation R2: 0.553
+"""
+
+# 3-2. Prediction for FFV, Fractional Free Volume
+# 1. features and target data for FFV
+train_FFV = train_desc[~train_desc['FFV'].isna()].copy()
+
+train_FFV_features = train_FFV.drop(['id', 'SMILES', 'Tg', 'FFV', 'Tc',	'Density',	'Rg'], axis=1)
+train_FFV_target = train_FFV['FFV']
+
+print(train_FFV_features.shape, train_FFV_target.shape)
+train_FFV_features.head()
+
+
+# 2. Train & Validation set 
+X_train_FFV, X_val_FFV, y_train_FFV, y_val_FFV = train_test_split(
+    train_FFV_features, train_FFV_target, test_size=0.2, random_state=42
+)
+
+# 3. Scaling
+scaler = StandardScaler()
+X_train_FFV_scaled = scaler.fit_transform(X_train_FFV)
+X_val_FFV_scaled = scaler.transform(X_val_FFV)
+
+X_train_FFV_scaled.shape, X_val_FFV_scaled.shape
+
+# 5. SVM Regression Model
+svm_FFV = SVR(kernel='rbf', C=10, epsilon=0.001, gamma='scale'
+             )
+svm_FFV.fit(X_train_FFV_scaled, y_train_FFV)
+
+# 6. Prediction
+y_pred_FFV = svm_FFV.predict(X_val_FFV_scaled)
+
+# 7. Evaluation
+mae = mean_absolute_error(y_val_FFV, y_pred_FFV)
+r2 = r2_score(y_val_FFV, y_pred_FFV)
+print(f"Validation MAE: {mae:.3f}")
+print(f"Validation R2: {r2:.3f}")
+
+# 8. Predicted Values
+import pandas as pd
+result_df = pd.DataFrame({
+    "True_FFV": y_val_FFV,
+    "Pred_FFV": y_pred_FFV
+})
+print(result_df.head())
+"""
+Validation MAE: 0.009
+Validation R2: 0.597
+"""
+
+# 4. Submission
+
+test_features = test_desc.drop(['id', 'SMILES'], axis=1)
+test_features_scaled = scaler.fit_transform(test_features)
+test_features_scaled = pd.DataFrame(test_features_scaled, columns=test_features.columns)
+test_features_scaled.head()
+
+test_pred_Tg = svm_Tg.predict(test_features_scaled)
+test_pred_FFV = svm_FFV.predict(test_features_scaled)
+test_pred_Tc = svm_Tc.predict(test_features_scaled)
+test_pred_Density = svm_Density.predict(test_features_scaled)
+test_pred_Rg = svm_Rg.predict(test_features_scaled)
+test_pred_Tg
+
+test_pred_Tg_orig = scaler.inverse_transform(test_pred_Tg.reshape(-1, 1)).flatten()
+test_pred_FFV_orig = scaler.inverse_transform(test_pred_FFV.reshape(-1, 1)).flatten()
+test_pred_Tc_orig = scaler.inverse_transform(test_pred_Tc.reshape(-1, 1)).flatten()
+test_pred_Density_orig = scaler.inverse_transform(test_pred_Density.reshape(-1, 1)).flatten()
+test_pred_Rg_orig = scaler.inverse_transform(test_pred_Rg.reshape(-1, 1)).flatten()
