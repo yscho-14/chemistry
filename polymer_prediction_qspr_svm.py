@@ -158,3 +158,26 @@ train_desc = pd.concat([train, train_desc_df], axis=1)
 
 print(train_desc.shape)
 train_desc.head()
+
+# Apply descriptors to the test dataset
+test_desc_list = []
+for smi in tqdm(test['SMILES'], desc='Calculating descriptors'):
+    test_desc_list.append(smiles_to_descriptors(smi))
+test_desc_df = pd.DataFrame(test_desc_list, columns=descriptor_names_all)
+
+# combine test dataset
+test_desc = pd.concat([test, test_desc_df], axis=1)
+
+print(test_desc.shape)
+test_desc.head()
+
+# 3-1. Prediction for Tg, Glass Transition Temperature
+
+# 1. features and target data for Tg
+train_Tg = train_desc[~train_desc['Tg'].isna()].copy()
+
+train_Tg_features = train_Tg.drop(['id', 'SMILES',	'Tg',	'FFV',	'Tc',	'Density',	'Rg'], axis=1)
+train_Tg_target = train_Tg['Tg']
+
+print(train_Tg_features.shape, train_Tg_target.shape)
+train_Tg_features.head()
